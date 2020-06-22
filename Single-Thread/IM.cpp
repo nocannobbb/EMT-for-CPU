@@ -9,10 +9,8 @@
 
 using namespace arma;
 
-Solver::Solver(int run_id)
+Solver::Solver()
 {
-
-    this->run_id = run_id;
 	//no use
 	srand(time(NULL));
 
@@ -23,7 +21,7 @@ Solver::Solver(int run_id)
 			tasks[task].chromosome[popu] = new Chromosome();
 		}
 	}
-
+//    this->run_id = run_id;
 }
 
 Solver::~Solver()
@@ -55,7 +53,7 @@ void Solver::InitialForPQ()
 			}
 		}
 	}
-	
+
 }
 
 void Solver::evaluateByTask(int task_id) {
@@ -71,7 +69,7 @@ void Solver::evaluateByTask(int task_id) {
     }
 }
 
-void Solver::Initial(float& sorting_time, float& evaluate_time)
+void Solver::Initial(double& sorting_time)
 {
 	//initialize auxiliary
 	for (int task = 0; task < TASK_SIZE; ++task)
@@ -102,12 +100,10 @@ void Solver::Initial(float& sorting_time, float& evaluate_time)
 				}
             }
         }
-		float evaluate_start = clock();
 		this->evaluateByTask(task);
-		evaluate_time += clock() - evaluate_start;
 
-		float sorting_start = clock();
-		this->UpdateByTask(task);
+		double sorting_start = clock();
+        this->UpdateByTask(task);
 		sorting_time += clock() - sorting_start;
 	}
 
@@ -132,7 +128,7 @@ void Solver::Initial(float& sorting_time, float& evaluate_time)
 
 
 	//beginning
-	for (int task = 0; task < TASK_SIZE; task++)
+	for (int task = 0; task < min(7, TASK_SIZE); task++)
 	{
 		cout << "island beginning  " << task + 1 << " : " << tasks[task].chromosome[0]->phenotype << endl;
 	}
@@ -145,22 +141,6 @@ bool Solver::compareFunc(Chromosome* chrom1, Chromosome* chrom2)
 	return chrom1->phenotype < chrom2->phenotype;
 }
 
-//convert a binary array to dec
-float Solver::ToDec(float* genotype)
-{
-	float Dec = 0.0;
-	for (int i = 0; i < MAX_DIMENSION; ++i)
-	{
-		Dec += genotype[i] * powf(2, i);
-	}
-	return Dec;
-}
-
-//no dealt, just return the dec value
-float Solver::Fitness(Chromosome* chrom)
-{
-	return ToDec(chrom->genotype);
-}
 
 bool Solver::sortFunc(Chromosome a, Chromosome b)
 {
@@ -210,7 +190,7 @@ void Solver::Mutation(float* offspring, float lower, float upper)
 				offspring[i] = res;
 			}
 
-		}	
+		}
 	}
 
 	//cout << "debug mutation :" << Fitness(&offspring) << endl;
@@ -235,7 +215,7 @@ void Solver::SBX(int task, float *p1, float *p2, float lower, float upper, int d
 		float res1 = 0.5 * ((1 + cf) * (p1[i]) + (1 - cf) * (p2[i]));
 		float res2 = 0.5 * ((1 + cf) * (p2[i]) + (1 - cf) * (p1[i]));
 
-		CheckDomain(res1, lower, upper);	//check border
+		CheckDomain(res1, lower, upper);	//check border, it's necessary
 		CheckDomain(res2, lower, upper);
 		p1[i] = res1;
 		p2[i] = res2;
@@ -319,7 +299,7 @@ void Solver::transform(float *res, float* M, float* elem, float bias, int dimens
 	{
 		for (int i = 0; i < dimension; ++i)
 		{
-			temp[i] = ChangeToTaskScale(task, elem[i]);	
+			temp[i] = ChangeToTaskScale(task, elem[i]);
 		}
 	}
 	for (int i = 0; i < dimension; ++i) {
@@ -332,21 +312,32 @@ void Solver::transform(float *res, float* M, float* elem, float bias, int dimens
 //	cpy(elem, res, dimension);
 }
 
-void Solver::generateSolution(string file_path)
-{ 
+void Solver::generateSolution(string file_path, int run_id)
+{
+	double migration_time = 0;
+	double transfer_time = 0;
+	double evolve_time = 0;
+	double sorting_time = 0;
+//    double cur_evolve = 0;
 
-	float start_time = clock();
-	float migration_time = 0;
-	float transfer_time = 0;
-	float evolve_time = 0;
-	float sorting_time = 0;
-	float evaluate_time = 0;
+    double sorting_start = 0;
+    double migration_start = 0;
+    double transfer_start = 0;
+    double evolve_start = 0;
 
-	this->Initial(sorting_time, evaluate_time);
+//	double bug_selection = 0;
+//	double bug_crossover = 0;
+//	double bug_mutation = 0;
+
+	double start_time = clock();
+    double cur = 0;
+	this->Initial(sorting_time);
 
 	if (!IMPLICIT_TRANSFER)
 	{
+	    cur = clock();
 		this->InitialForPQ();
+		transfer_time += clock() - cur;
 	}
 
 	Chromosome offspring1;
@@ -363,23 +354,23 @@ void Solver::generateSolution(string file_path)
 	for (int generation = 1; generation <= GENERATION_SIZE; ++generation)
 	{
 		// run for one minute
-	    //if(clock() - start_time > 60000)
-     //   {
-     //       //output best individual into files
-     //       for(int task = 0; task < TASK_SIZE; ++task)
-     //       {
-     //           string output_file = "C:\\Users\\user5\\Desktop\\cm\\Island_Model\\Island_Model\\output\\problem_" + to_string(task) + "_"
-     //               + to_string(run_id) + ".txt";
-     //           ofstream outfile;
-     //           outfile.open(output_file, ios::app);
-     //           //best individual of all populations
-     //           sort(tasks[task].chromosome,tasks[task].chromosome + POPULATION_SIZE,compareFunc);
-     //           outfile << "best individual : " << tasks[task].chromosome[0]->phenotype << endl;
+//	    if(clock() - start > 60000)
+//        {
+//            //output best individual into files
+//            for(int task = 0; task < TASK_SIZE; ++task)
+//            {
+//                string output_file = file_path + "TASKS_RUN_" + to_string(run_id) + ".txt";
+//                ofstream outfile;
+//                outfile.open(output_file, ios::app);
+//                //best individual of all populations
+//                sort(tasks[task].chromosome,tasks[task].chromosome + POPULATION_SIZE,compareFunc);
+//                outfile << "best individual : " << tasks[task].chromosome[0]->phenotype << endl;
+//
+//                outfile.close();
+//            }
+//            return;
+//        }
 
-     //           outfile.close();
-     //       }
-     //       return;
-     //   }
 		for (int task = 0; task < TASK_SIZE; ++task)
 		{
 			cpy(M, tasks[task].auxiliary.M, MAX_DIMENSION * MAX_DIMENSION);
@@ -388,12 +379,13 @@ void Solver::generateSolution(string file_path)
 			upper = tasks[task].auxiliary.upper;
 			dimension = tasks[task].auxiliary.dimension;
 
-//            printf("lower = %f  upper = %f  bias = %f  task_id = %d\n", lower, upper, bias, task + 1);
+            evolve_start = clock();
 			for (int island = 0; island < ISLAND_NUM; ++island)
 			{
 				for (int popu = island * ISLAND_SIZE; popu < ISLAND_SIZE / 2 + island * ISLAND_SIZE; ++popu)
 				{
-                    float evolve_start = clock();
+
+                    cur = clock();
 					p1 = this->rouletteWheel();
 					p2 = this->rouletteWheel();
 					if (p1 == p2) p2 = (p2 + 1) % ISLAND_SIZE;
@@ -404,41 +396,43 @@ void Solver::generateSolution(string file_path)
 					cpy(offspring1.genotype, tasks[task].chromosome[p1]->genotype, dimension);
 					cpy(offspring2.genotype, tasks[task].chromosome[p2]->genotype, dimension);
 
-                    //debug
-					/*if (generation == 0)
-					{
-						cout << "fitness:  " << Fitness(&offspring1) << endl;
-					}*/
+//                    bug_selection += clock() - cur;
 
 					if (IMPLICIT_TRANSFER)
 					{
+//					    cur = clock();
 						this->SBX(task, offspring1.genotype, offspring2.genotype, GEN_LOWER, GEN_UPPER, dimension);
+//                        bug_crossover += clock() - cur;
 
+//                        cur = clock();
 						this->Mutation(offspring1.genotype, GEN_LOWER, GEN_UPPER);
 						this->Mutation(offspring2.genotype, GEN_LOWER, GEN_UPPER);
+//						bug_mutation += clock() - cur;
 					}
 					else
 					{
+//					    cur = clock();
 						this->SBX(task, offspring1.genotype, offspring2.genotype, lower, upper, dimension);
+//                        bug_crossover += clock() - cur;
 
+//						cur = clock();
 						this->Mutation(offspring1.genotype, lower, upper);
 						this->Mutation(offspring2.genotype, lower, upper);
+//						bug_mutation += clock() - cur;
 					}
-					
-                    evolve_time += (clock() - evolve_start);
+
+
 					/*cpy(p1_temp, offspring1.genotype, dimension);
 					cpy(p2_temp, offspring2.genotype, dimension);*/
 
 					float gene1[MAX_DIMENSION], gene2[MAX_DIMENSION];
-					float evaluate_start = clock();
+
 					transform(gene1, M, offspring1.genotype, bias, dimension, task);
 					transform(gene2, M, offspring2.genotype, bias, dimension, task);
 
 					float res1 = functionChoice(task, gene1, dimension);
 					float res2 = functionChoice(task, gene2, dimension);
-					evaluate_time += clock() - evaluate_start;
 
-                    evolve_start = clock();
 					//all assigned to p1, because we do for loop for p1, size: 1 / 2 * ISLAND_SIZE
 					if (tasks[task].chromosome[popu]->phenotype - BIAS > res1)
 					{
@@ -451,10 +445,12 @@ void Solver::generateSolution(string file_path)
 						cpy(tasks[task].chromosome[popu + ISLAND_SIZE / 2]->genotype, offspring2.genotype, dimension);
 						tasks[task].chromosome[popu + ISLAND_SIZE / 2]->phenotype = res2;
 					}
-					evolve_time += clock() - evolve_start;
+
 				}
 			}
-			float sorting_start = clock();
+			evolve_time += clock() - evolve_start;
+
+			sorting_start = clock();
 			this->UpdateByTask(task);
 			sorting_time += clock() - sorting_start;
 		}
@@ -463,9 +459,9 @@ void Solver::generateSolution(string file_path)
 		//migration
 		if (generation % MIGRATION_INTERVAL == 0)
 		{
-			float migration_start = clock();
+			migration_start = clock();
 			this->migration();
-			
+
 			for (int task = 0; task < TASK_SIZE; ++task)
 			{
 				this->UpdateByTask(task);
@@ -477,7 +473,7 @@ void Solver::generateSolution(string file_path)
 		//transfer
 		if (generation % TRANSFER_INTERVAL == 0)
 		{
-			float transfer_start = clock();
+			transfer_start = clock();
 			if (IMPLICIT_TRANSFER)
 			{
 				this->ImplicitTransfer();
@@ -500,6 +496,7 @@ void Solver::generateSolution(string file_path)
 
 		cout << "generation " << generation << " finished ! " << endl;
 
+//phenotype
 		//output generation phenotype into files
 //        for (int task = 0; task < TASK_SIZE; ++task)
 //		{
@@ -516,47 +513,60 @@ void Solver::generateSolution(string file_path)
 //
 //			outfile.close();
 //		}
-		
 
-		if (generation % 20 == 0)
-		{
-			float sum = 0.0;
-			for (int task = 0; task < TASK_SIZE; ++task)
-			{
-				for (int island = 0; island < ISLAND_NUM; ++island)
-				{
-					sum += tasks[task].chromosome[island * ISLAND_SIZE]->phenotype;
-				}
-			}
-			cout << "sum of the best: " << sum << endl;
-		}
+//debug
+//		if (generation % 10 == 0)
+//		{
+//		    cout << "reproduction_time : " << evolve_time / CLOCKS_PER_SEC << endl;
+//            cout << "sorting_time : " << sorting_time / CLOCKS_PER_SEC<< endl;
+//            cout << "migration_time : " << migration_time / CLOCKS_PER_SEC << endl;
+//            cout << "transfer_time : " << transfer_time / CLOCKS_PER_SEC<< endl;
+//            cout << "total time : " << (clock() - start) / CLOCKS_PER_SEC<< endl << endl;
+//
+//            cout << "other time : " << (clock() - start - transfer_time - migration_time - sorting_time - evaluate_time - evolve_time) / CLOCKS_PER_SEC << endl;
+//
+//            printf("%f \t %f \t %f \n", bug_crossover / CLOCKS_PER_SEC, bug_mutation / CLOCKS_PER_SEC, bug_selection / CLOCKS_PER_SEC);
+//      }
+
+//sum
+//			float sum = 0.0;
+//			for (int task = 0; task < TASK_SIZE; ++task)
+//			{
+//				for (int island = 0; island < ISLAND_NUM; ++island)
+//				{
+//					sum += tasks[task].chromosome[island * ISLAND_SIZE]->phenotype;
+//				}
+//			}
+//			cout << "sum of the best: " << sum << endl;
+
 	}
 
 
+	double total_time = clock() - start_time;
 	//output time of each part into files
 	//string output_file = "C:\\Users\\user5\\Desktop\\cm\\Island_Model\\Island_Model\\time\\" + to_string(run_id) + ".txt";
 	string output_file = file_path + "TASKS_RUN_" + to_string(run_id) + ".txt";
 	ofstream outfile;
 	outfile.open(output_file,ios::app);
-	outfile << "evolve_time : " << evolve_time << endl;
-	outfile << "migration_time : " << migration_time << endl;
-	outfile << "transfer_time : " << transfer_time << endl;
-	outfile << "sorting_time : " << sorting_time << endl;
-	outfile << "evaluate_time : " << evaluate_time << endl;
-//	outfile << "total_time : " << total_time << endl;
+	outfile << "reproduction_time : " << evolve_time / CLOCKS_PER_SEC << endl;
+	outfile << "sorting_time : " << sorting_time / CLOCKS_PER_SEC << endl;
+	outfile << "migration_time : " << migration_time / CLOCKS_PER_SEC << endl;
+	outfile << "transfer_time : " << transfer_time / CLOCKS_PER_SEC << endl;
+	outfile << "total_time : " << total_time / CLOCKS_PER_SEC << endl;
+	outfile << "other_time : " << (total_time - transfer_time - migration_time - sorting_time - evolve_time) / CLOCKS_PER_SEC << endl;
 
 	outfile.close();
 
 	//ending output
-	for (int task = 0; task < TASK_SIZE; task++)
-	{
-		cout << "task final  " << task + 1 << " : " << tasks[task].chromosome[0]->phenotype << endl;
-		printf("lower = %f  upper = %f\n", tasks[task].auxiliary.lower, tasks[task].auxiliary.upper);
-		for(int i = 0; i < tasks[task].auxiliary.dimension; ++i) {
-            printf("%f ", tasks[task].chromosome[0]->genotype[i]);
-		}
-		printf("\n");
-	}
+//	for (int task = 0; task < min(7, TASK_SIZE); task++)
+//	{
+//		cout << "task final  " << task + 1 << " : " << tasks[task].chromosome[0]->phenotype << endl;
+//		printf("lower = %f  upper = %f\n", tasks[task].auxiliary.lower, tasks[task].auxiliary.upper);
+//		for(int i = 0; i < tasks[task].auxiliary.dimension; ++i) {
+//            printf("%f ", tasks[task].chromosome[0]->genotype[i]);
+//		}
+//		printf("\n");
+//	}
 
 	//cout << "-------------------------- time line -------------------------------" << endl;
 	//cout << "generation time : " << generation_time << endl;
@@ -733,7 +743,7 @@ void Solver::ExplicitTransfer()
 
 		int target_dimension = tasks[target].auxiliary.dimension;
 		int source_dimision = tasks[source].auxiliary.dimension;
-
+        this->calculateM(M, target, source);
 		for (int island = 0; island < ISLAND_NUM; ++island)
 		{
 			for (int popu = island * ISLAND_SIZE; popu < island * ISLAND_SIZE + TRANSFER_SIZE; ++popu)
@@ -742,13 +752,12 @@ void Solver::ExplicitTransfer()
 				int target_popu = popu + (ISLAND_SIZE - TRANSFER_SIZE);
 //				int target_popu = ISLAND_SIZE - (TRANSFER_SIZE - (popu - island * ISLAND_SIZE)) + island * ISLAND_SIZE;
 				//cout << "target : " << target_popu << endl;
-				this->calculateM(M, target, source);
 				float temp[MAX_DIMENSION], temp2[MAX_DIMENSION], genotype_copy[MAX_DIMENSION + 1];
 				cpy(genotype_copy, tasks[source].chromosome[popu]->genotype, target_dimension);
 				genotype_copy[MAX_DIMENSION] = 1;
-				
+
 				this->transferByM(genotype_copy, M, temp, target_dimension, source_dimision + 1);
-				
+
                 for(int i = 0; i < target_dimension; ++i)
                 {
                     this->CheckDomain(temp[i], tasks[target].auxiliary.lower, tasks[target].auxiliary.upper);

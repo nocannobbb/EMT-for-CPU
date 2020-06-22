@@ -43,11 +43,12 @@ const float PI = acos(-1);
 const int IMPLICIT_TRANSFER = 0;
 const float GEN_LOWER = 0.0;
 const float GEN_UPPER = 1.0;
+const int RUN_SIZE = 4;
 
 
 //get from gpu version
 // Parameters for MFEA-2
-const int TASK_SIZE = 100;
+const int TASK_SIZE = 1000;
 const int POPULATION_SIZE = 512;
 const int MAX_DIMENSION = 50;
 const int GENERATION_SIZE = 1000;
